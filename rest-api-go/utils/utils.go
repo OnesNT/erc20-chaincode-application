@@ -3,9 +3,10 @@ package utils
 import (
 	"crypto/x509"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 
-	"github.com/gin-gonic/gin"
 	"github.com/hyperledger/fabric-gateway/pkg/identity"
 )
 
@@ -18,36 +19,52 @@ func LoadCertificate(filename string) (*x509.Certificate, error) {
 	return identity.CertificateFromPEM(certificatePEM)
 }
 
-func getCertificateAndPrivateKeyFromForm(c *gin.Context) ([]byte, []byte, error) {
-	certFile, certErr := c.FormFile("cert")
-	keyFile, keyErr := c.FormFile("key")
-	if certErr != nil || keyErr != nil {
-		return nil, nil, fmt.Errorf("cert and key files are required")
+// GetCertificateAndPrivateKeyFromForm extracts certificate and private key from the form data.
+func GetCertificateAndPrivateKeyFromForm(r *http.Request) ([]byte, []byte, error) {
+	err := r.ParseMultipartForm(32 << 20) // 32 MB limit
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to parse form: %v", err)
 	}
 
-	certContent, certErr := certFile.Open()
-	if certErr != nil {
-		return nil, nil, fmt.Errorf("unable to open cert file")
+	certFile, _, err := r.FormFile("cert")
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to get cert file: %v", err)
 	}
-	defer certContent.Close()
+	defer certFile.Close()
 
-	keyContent, keyErr := keyFile.Open()
-	if keyErr != nil {
-		return nil, nil, fmt.Errorf("unable to open key file")
+	keyFile, _, err := r.FormFile("key")
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to get key file: %v", err)
 	}
-	defer keyContent.Close()
+	defer keyFile.Close()
 
-	certificatePEM := make([]byte, certFile.Size)
-	_, certErr = certContent.Read(certificatePEM)
-	if certErr != nil {
-		return nil, nil, fmt.Errorf("unable to read cert file")
+	certificatePEM, err := io.ReadAll(certFile)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to read cert file: %v", err)
 	}
 
-	privateKeyPEM := make([]byte, keyFile.Size)
-	_, keyErr = keyContent.Read(privateKeyPEM)
-	if keyErr != nil {
-		return nil, nil, fmt.Errorf("unable to read key file")
+	privateKeyPEM, err := io.ReadAll(keyFile)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to read key file: %v", err)
 	}
 
 	return certificatePEM, privateKeyPEM, nil
+}
+
+// SavePEMToFile saves PEM data to a specified file.
+func SavePEMToFile(filePath string, pemData []byte) error {
+	// Create or truncate the file at the given path
+	file, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Write the PEM data to the file
+	_, err = file.Write(pemData)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

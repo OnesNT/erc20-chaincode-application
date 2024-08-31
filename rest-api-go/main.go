@@ -24,15 +24,12 @@ func main() {
 		log.Fatalf("Error initializing setup for Org1: %v", err)
 	}
 
-	transferController := controllers.NewTransferController(orgSetup)
-	balanceController := controllers.NewBalanceController(orgSetup)
-	InvokeController := controllers.NewInvokeController(orgSetup)
-	MintController := controllers.NewMinController(orgSetup)
+	tokenController := controllers.NewTokenController(orgSetup)
 
-	http.HandleFunc("/transfer", transferController.Transfer)
-	http.HandleFunc("/balance", balanceController.GetClientAccountBalance)
-	http.HandleFunc("/invoke", InvokeController.InitializeContract)
-	http.HandleFunc("/mint", MintController.Mint)
+	http.HandleFunc("/transfer", tokenController.Transfer)
+	http.HandleFunc("/balance", tokenController.GetClientAccountBalance)
+	http.HandleFunc("/invoke", tokenController.InitializeContract)
+	http.HandleFunc("/mint", tokenController.Mint)
 
 	log.Println("Starting server on port 8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
