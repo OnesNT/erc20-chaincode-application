@@ -81,14 +81,53 @@ func newIdentity(setup OrgSetup) *identity.X509Identity {
 	return id
 }
 
+// func newSign(setup OrgSetup) identity.Sign {
+// 	files, err := os.ReadDir(setup.KeyPath)
+// 	if err != nil {
+// 		log.Fatalf("Failed to read key directory: %v", err)
+// 	}
+// 	privateKeyPEM, err := os.ReadFile(path.Join(setup.KeyPath, files[0].Name()))
+// 	if err != nil {
+// 		log.Fatalf("Failed to read private key file: %v", err)
+// 	}
+
+// 	privateKey, err := identity.PrivateKeyFromPEM(privateKeyPEM)
+// 	if err != nil {
+// 		log.Fatalf("Failed to parse private key: %v", err)
+// 	}
+
+// 	sign, err := identity.NewPrivateKeySign(privateKey)
+// 	if err != nil {
+// 		log.Fatalf("Failed to create sign function: %v", err)
+// 	}
+
+// 	return sign
+// }
+
 func newSign(setup OrgSetup) identity.Sign {
-	files, err := os.ReadDir(setup.KeyPath)
+	// Check if the KeyPath is a directory or a file
+	fileInfo, err := os.Stat(setup.KeyPath)
 	if err != nil {
-		log.Fatalf("Failed to read key directory: %v", err)
+		log.Fatalf("Failed to read key path: %v", err)
 	}
-	privateKeyPEM, err := os.ReadFile(path.Join(setup.KeyPath, files[0].Name()))
-	if err != nil {
-		log.Fatalf("Failed to read private key file: %v", err)
+
+	var privateKeyPEM []byte
+	if fileInfo.IsDir() {
+		// If KeyPath is a directory, read the first file found in the directory
+		files, err := os.ReadDir(setup.KeyPath)
+		if err != nil {
+			log.Fatalf("Failed to read key directory: %v", err)
+		}
+		privateKeyPEM, err = os.ReadFile(path.Join(setup.KeyPath, files[0].Name()))
+		if err != nil {
+			log.Fatalf("Failed to read private key file: %v", err)
+		}
+	} else {
+		// If KeyPath is a file, read the file directly
+		privateKeyPEM, err = os.ReadFile(setup.KeyPath)
+		if err != nil {
+			log.Fatalf("Failed to read private key file: %v", err)
+		}
 	}
 
 	privateKey, err := identity.PrivateKeyFromPEM(privateKeyPEM)

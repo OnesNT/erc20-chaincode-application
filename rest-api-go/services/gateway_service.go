@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"path/filepath"
 	"rest-api-go/utils"
@@ -91,9 +92,7 @@ func (g *GatewayService) CallChaincodeGET(channelID, chainCodeName, functionChai
 	return balance, nil
 }
 
-// InitializeWithCertAndKey handles extracting the cert and key from the request and reinitializes the service.
 func (s *GatewayService) InitializeWithCertAndKey(r *http.Request) error {
-
 	// Extract certificate and key from the request
 	certPEM, keyPEM, err := utils.GetCertificateAndPrivateKeyFromForm(r)
 	if err != nil {
@@ -114,23 +113,36 @@ func (s *GatewayService) InitializeWithCertAndKey(r *http.Request) error {
 		return fmt.Errorf("failed to save key: %w", err)
 	}
 
+	// Log the contents of the certificate and key for debugging
+	log.Printf("Certificate Content:\n%s", string(certPEM))
+	log.Printf("Key Content:\n%s", string(keyPEM))
+
+	// Print certPath and keyPath for debugging
+	log.Printf("Certificate Path: %s", certPath)
+	log.Printf("Key Path: %s", keyPath)
+
 	// Define orgconfig
 	cryptoPath := "../../test-network/organizations/peerOrganizations/org1.example.com"
 	orgConfig := OrgSetup{
-		OrgName:      "Org1",
-		MSPID:        "Org1MSP",
-		CertPath:     certPath,
-		KeyPath:      keyPath,
+		OrgName:  "Org1",
+		MSPID:    "Org1MSP",
+		CertPath: certPath,
+		KeyPath:  keyPath,
+		// CertPath:     cryptoPath + "/users/Creator1@org1.example.com/msp/signcerts/cert.pem",
+		// KeyPath:      cryptoPath + "/users/Creator1@org1.example.com/msp/keystore/",
 		TLSCertPath:  cryptoPath + "/peers/peer0.org1.example.com/tls/ca.crt",
 		PeerEndpoint: "dns:///localhost:7051",
 		GatewayPeer:  "peer0.org1.example.com",
 	}
 
-	// Update the OrgSetup configuration dynamically
-	s.Setup = &orgConfig
+	// Initialize the OrgSetup
+	orgSetup, err := Initialize(orgConfig)
+	if err != nil {
+		return fmt.Errorf("failed to initialize OrgSetup: %w", err)
+	}
 
-	// Reinitialize the service with the new certificate and key
-	*s = *NewGatewayService(s.Setup)
+	// Recreate the GatewayService with the new org setup
+	*s = *NewGatewayService(orgSetup)
 
 	return nil
 }
