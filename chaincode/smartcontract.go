@@ -34,54 +34,51 @@ func (s *BSmartContract) InitLedger(ctx contractapi.TransactionContextInterface,
 	}
 }
 
-func (s *BSmartContract) CallMintFromDebtPED(ctx contractapi.TransactionContextInterface, chaincodeAName, amount_mint float64){
-	args := [][]byte{[]byte("MintFromDebt"), []byte(amount_mint)}
+// CallMintFromDebtPED invokes the MintFromDebt function of Chaincode A
+func (s *BSmartContract) CallMintFromDebtPED(ctx contractapi.TransactionContextInterface, chaincodeAName string, amount_mint float64) error {
+	args := [][]byte{[]byte("MintFromDebt"), []byte(fmt.Sprintf("%f", amount_mint))}
 
-	// Call Chaincode A's ReadAsset function using InvokeChaincode
 	response := ctx.GetStub().InvokeChaincode(chaincodeAName, args, "")
 	if response.Status != 200 {
-		return nil, fmt.Errorf("failed to invoke Chaincode A: %s", response.Message)
+		return fmt.Errorf("failed to invoke Chaincode A: %s", response.Message)
 	}
-} 
 
-func (s *BSmartContract) CallTransferFromChaincode(ctx contractapi.TransactionContextInterface, chaincodeAName, amount_transfer float64, to_ID string){
-
+	return nil
 }
 
-func (s *BSmartContract) CallTransferFromUser(ctx contractapi.TransactionContextInterface, chaincodeAName, amount_transfer float64, to_ID string) {
+// CallTransferFromChaincode invokes the TransferFrom function of Chaincode A
+func (s *BSmartContract) CallTransferFromChaincode(ctx contractapi.TransactionContextInterface, chaincodeAName string, amount_transfer float64, to_ID string) error {
+	args := [][]byte{[]byte("TransferFromChaincode"), []byte(fmt.Sprintf("%f", amount_transfer)), []byte(to_ID)}
 
+	response := ctx.GetStub().InvokeChaincode(chaincodeAName, args, "")
+	if response.Status != 200 {
+		return fmt.Errorf("failed to invoke Chaincode A: %s", response.Message)
+	}
+
+	return nil
 }
 
-func (s *BSmartContract) CallPayOff(ctx contractapi.TransactionContextInterface, chaincodeAName, amount_payoff float64) {
+// CallTransferFromUser invokes the TransferFromUser function of Chaincode A
+func (s *BSmartContract) CallTransferFromUser(ctx contractapi.TransactionContextInterface, chaincodeAName string, amount_transfer float64, to_ID string) error {
+	args := [][]byte{[]byte("TransferFromUser"), []byte(fmt.Sprintf("%f", amount_transfer)), []byte(to_ID)}
 
+	response := ctx.GetStub().InvokeChaincode(chaincodeAName, args, "")
+	if response.Status != 200 {
+		return fmt.Errorf("failed to invoke Chaincode A: %s", response.Message)
+	}
+
+	return nil
+}
+
+// CallPayOff invokes the PayOff function of Chaincode A
+func (s *BSmartContract) CallPayOff(ctx contractapi.TransactionContextInterface, chaincodeAName string, amount_payoff float64) error {
+	args := [][]byte{[]byte("PayOff"), []byte(fmt.Sprintf("%f", amount_payoff))}
+
+	response := ctx.GetStub().InvokeChaincode(chaincodeAName, args, "")
+	if response.Status != 200 {
+		return fmt.Errorf("failed to invoke Chaincode A: %s", response.Message)
+	}
+
+	return nil
 }
 	
-
-// // ReadAssetFromA invokes the ReadAsset function of Chaincode A to get an asset by its ID
-// func (s *BSmartContract) ReadAssetFromA(ctx contractapi.TransactionContextInterface, chaincodeAName, assetID string) (*Asset, error) {
-// 	// Construct the arguments for invoking Chaincode A
-// 	args := [][]byte{[]byte("ReadAsset"), []byte(assetID)}
-
-// 	// Call Chaincode A's ReadAsset function using InvokeChaincode
-// 	response := ctx.GetStub().InvokeChaincode(chaincodeAName, args, "")
-// 	if response.Status != 200 {
-// 		return nil, fmt.Errorf("failed to invoke Chaincode A: %s", response.Message)
-// 	}
-
-// 	// Unmarshal the asset from the response payload
-// 	var asset Asset
-// 	if err := json.Unmarshal(response.Payload, &asset); err != nil {
-// 		return nil, fmt.Errorf("failed to unmarshal asset from Chaincode A: %v", err)
-// 	}
-
-// 	return &asset, nil
-// }
-
-// // Asset describes basic details of what makes up a simple asset
-// type Asset struct {
-// 	AppraisedValue int    `json:"appraised_value"`
-// 	Color          string `json:"color"`
-// 	ID             string `json:"id"`
-// 	Owner          string `json:"owner"`
-// 	Size           int    `json:"size"`
-// }
