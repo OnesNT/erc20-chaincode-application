@@ -1,8 +1,11 @@
 package chaincode
 
 import (
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"time"
 
 	"github.com/hyperledger/fabric-contract-api-go/v2/contractapi"
 )
@@ -14,24 +17,73 @@ type BSmartContract struct {
 	contractapi.Contract
 }
 
+// GetOwnerNameFromCertificate extracts the owner name (Common Name) from the caller's X.509 certificate
+func GetOwnerNameFromCertificate(ctx contractapi.TransactionContextInterface) (string, error) {
+	// Get the client certificate (this will return the X.509 certificate string)
+	certificate, err := ctx.GetClientIdentity().GetID()
+	if err != nil {
+		return "", fmt.Errorf("failed to get client certificate: %v", err)
+	}
 
-func (s *BSmartContract) InitLedger(ctx contractapi.TransactionContextInterface, chaincodeAName string) {
-	blance := []Balance{
-		{ID:"chaincode1", Owner: "Chill", Balance: 1000, LastUpdated: 23/12/2023}
-		{ID:"chaincode2", Owner: "Bee", Balance : 2000, LastUpdated: 20/11/2024}
-		{ID:"user1", Owner:"Quang", Balance: 1000, LastUpdated: 11/11/2021}
-		{ID:"user2", Owner:"Huy", Balance: 2000, LastUpdated: 20/2/2022}
+	// Decode the certificate
+	block, _ := pem.Decode([]byte(certificate))
+	if block == nil {
+		return "", fmt.Errorf("failed to parse certificate PEM")
+	}
 
+	// Parse the X.509 certificate
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse X.509 certificate: %v", err)
 	}
-	loan := []Loan{
-		{ID: "loan1", Owner: "Chill", PrincipalAmount: 200.23, InterestRate: 6, StartDate: 1/1/2020, EndDate: 1/1/2022, RemainingPrincipal: 0, LoanStatus:"closed"},
-		{ID: "loan2", Owner: "Chill", PrincipalAmount: 100, InterestRate: 6, StartDate: 1/3/2023, EndDate: 1/3/2025, RemainingPrincipal: 90, LoanStatus:"openning"},
-		{ID: "loan3", Owner: "Chill", PrincipalAmount: 105, InterestRate: 6, StartDate: 1/5/2023, EndDate: 1/1/2025, RemainingPrincipal: 105, LoanStatus:"openning"},
+
+	// Extract the common name (CN) from the certificate
+	ownerName := cert.Subject.CommonName
+	if ownerName == "" {
+		return "", fmt.Errorf("common name (CN) not found in the certificate")
 	}
-	payment := []Payment{
-		{ID: "payment1", LoanID: "loan1", PaymentAmount: 200.23,PaymentDate: 1/1/2020, CreatedAt: 1/1/2020}
-		{ID: "payment2", LoanID: "loan2", PaymentAmount: 10,PaymentDate: 10/10/2023, CreatedAt: 10/10/2023}
-	}
+
+	return ownerName, nil
+}
+
+// CreateBalanceForCaller creates a balance for the caller if it doesn't already exist
+func (s *SmartContract) CreateBalanceForCaller(ctx contractapi.TransactionContextInterface, initialBalance float64) error {
+    // Retrieve the caller's identity (client ID)
+    callerID, err := ctx.GetClientIdentity().GetID()
+    if err != nil {
+        return fmt.Errorf("failed to get client identity: %v", err)
+    }
+
+    // Check if a balance already exists for the caller using IsBalanceExists
+    balanceExists, err := IsBalanceExists(ctx, callerID)
+    if err != nil {
+        return fmt.Errorf("failed to check if balance exists: %v", err)
+    }
+    if balanceExists {
+        return fmt.Errorf("balance for caller already exists")
+    }
+
+    // Get the owner name (Common Name) from the certificate
+    ownerName, err := GetOwnerNameFromCertificate(ctx)
+    if err != nil {
+        return fmt.Errorf("failed to retrieve owner name: %v", err)
+    }
+
+    // Create a new balance entry for the caller
+    balance := &Balance{
+        ID:          callerID,              // Use client ID as the balance ID
+        Owner:       ownerName,             // Set owner as the extracted common name
+        Balance:     initialBalance,        // Set the initial balance
+        LastUpdated: int(time.Now().Unix()), // Use current time as LastUpdated (Unix timestamp)
+    }
+
+    // Save the balance to the world state
+    err = balance.Save(ctx)
+    if err != nil {
+        return fmt.Errorf("failed to create balance: %v", err)
+    }
+
+    return nil
 }
 
 // CallMintFromDebtPED invokes the MintFromDebt function of Chaincode A
